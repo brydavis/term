@@ -8,6 +8,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -17,19 +18,30 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	host     = flag.String("host", "127.0.0.1", "Host IP address or URL")
+	port     = flag.String("port", "22", "Host's SSH port")
+	username = flag.String("user", "root", "Username @ login")
+	password = flag.String("pass", "", "Password @ login")
+)
+
 func main() {
+	flag.Parse()
 	pkey, err := getKeyFile()
 	if err != nil {
 		panic(err)
 	}
 
 	config := &ssh.ClientConfig{
-		User: "root",
-		Auth: []ssh.AuthMethod{ssh.PublicKeys(pkey)},
+		User: *username,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(pkey),
+			ssh.Password(*password),
+		},
 	}
 
 	// Dial your ssh server.
-	conn, err := ssh.Dial("tcp", "127.0.0.1:22", config) // TODO: pass arguments
+	conn, err := ssh.Dial("tcp", *host+":"+*port, config)
 	if err != nil {
 		log.Fatalf("unable to connect: %s", err)
 	}
@@ -41,29 +53,29 @@ func main() {
 	}
 	defer session.Close()
 
-	// Set IO
+	// Setting up IO
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 	in, _ := session.StdinPipe()
 
-	// Set up terminal modes
+	// Setting up terminal modes
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          0,     // disable echoing
 		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
 
-	// Request pseudo terminal
+	// Requesting pseudo terminal
 	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
 		log.Fatalf("request for pseudo terminal failed: %s", err)
 	}
 
-	// Start remote shell
+	// Starting remote shell
 	if err := session.Shell(); err != nil {
 		log.Fatalf("failed to start shell: %s", err)
 	}
 
-	// Accepting commands
+	// Lastly, accepting commands
 	for {
 		reader := bufio.NewReader(os.Stdin)
 		str, _ := reader.ReadString('\n')
