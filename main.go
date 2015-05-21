@@ -81,7 +81,7 @@ func main() {
 		str, _ := reader.ReadString('\n')
 
 		fmt.Fprint(in, str)
-		if str != "exit" {
+		if str == "exit" || str == "quit" {
 			os.Exit(1)
 		}
 	}
